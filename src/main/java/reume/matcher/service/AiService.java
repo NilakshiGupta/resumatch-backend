@@ -18,7 +18,7 @@ public class AiService {
     private String apiKey;
 
     private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
 
