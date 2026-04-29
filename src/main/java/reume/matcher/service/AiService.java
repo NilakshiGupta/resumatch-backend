@@ -1,5 +1,6 @@
 package reume.matcher.service;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,13 +14,11 @@ import java.net.http.HttpResponse;
 @Service
 public class AiService {
 
-    @Value("${openrouter.api.key}")
+    @Value("${gemini.api.key}")
     private String apiKey;
 
-    @Value("${openrouter.model}")
-    private String model;
-
-    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+    private static final String GEMINI_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
 
@@ -43,22 +42,27 @@ public class AiService {
                 "Resume: " + shortResume + "\n" +
                 "Job Description: " + jobDescription;
 
-        JsonObject message = new JsonObject();
-        message.addProperty("role", "user");
-        message.addProperty("content", prompt);
+        JsonObject textPart = new JsonObject();
+        textPart.addProperty("text", prompt);
 
-        com.google.gson.JsonArray messages = new com.google.gson.JsonArray();
-        messages.add(message);
+        JsonArray parts = new JsonArray();
+        parts.add(textPart);
+
+        JsonObject content = new JsonObject();
+        content.add("parts", parts);
+
+        JsonArray contents = new JsonArray();
+        contents.add(content);
 
         JsonObject requestBody = new JsonObject();
-        requestBody.addProperty("model", model);
-        requestBody.add("messages", messages);
+        requestBody.add("contents", contents);
+
+        String url = GEMINI_URL + "?key=" + apiKey;
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(OPENROUTER_URL))
+                .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
@@ -73,10 +77,12 @@ public class AiService {
         }
 
         String text = jsonResponse
-                .getAsJsonArray("choices")
+                .getAsJsonArray("candidates")
                 .get(0).getAsJsonObject()
-                .getAsJsonObject("message")
-                .get("content").getAsString();
+                .getAsJsonObject("content")
+                .getAsJsonArray("parts")
+                .get(0).getAsJsonObject()
+                .get("text").getAsString();
 
         return text.replace("```json", "").replace("```", "").trim();
     }
