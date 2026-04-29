@@ -63,6 +63,7 @@ public class AiService {
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        System.out.println("FULL RESPONSE: " + response.body());
 
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
 
