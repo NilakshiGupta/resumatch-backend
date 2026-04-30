@@ -1,2 +1,4 @@
-node_modules/ 
-resumatch-frontend/ 
+node_modules/
+resumatch-frontend/
+target/
+src/main/resources/application.properties
