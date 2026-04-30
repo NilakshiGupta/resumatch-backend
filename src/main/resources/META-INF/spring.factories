@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+reume.matcher.config.TimezoneEnvironmentPostProcessor
