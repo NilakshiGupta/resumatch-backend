@@ -14,16 +14,17 @@ import java.net.http.HttpResponse;
 @Service
 public class AiService {
 
-    @Value("${gemini.api.key}")
+    @Value("${groq.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
+    private static final String GROQ_URL =
+            "https://api.groq.com/openai/v1/chat/completions";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
 
         String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
 
-        String prompt = "You are an ATS (Applicant Tracking System) expert. Analyze the resume against the job description.\n" +
+        String prompt = "You are an ATS expert. Analyze the resume against the job description.\n" +
                 "Return ONLY a valid JSON object, no markdown, no extra text:\n" +
                 "{\n" +
                 "  \"matchPercentage\": 75,\n" +
@@ -41,26 +42,30 @@ public class AiService {
                 "Resume: " + shortResume + "\n" +
                 "Job Description: " + jobDescription;
 
-        // Build Gemini request body
-        JsonObject textPart = new JsonObject();
-        textPart.addProperty("text", prompt);
+        // Build request body (OpenAI-compatible format)
+        JsonObject systemMessage = new JsonObject();
+        systemMessage.addProperty("role", "system");
+        systemMessage.addProperty("content", "You are an ATS expert. Always respond with valid JSON only.");
 
-        JsonArray parts = new JsonArray();
-        parts.add(textPart);
+        JsonObject userMessage = new JsonObject();
+        userMessage.addProperty("role", "user");
+        userMessage.addProperty("content", prompt);
 
-        JsonObject content = new JsonObject();
-        content.add("parts", parts);
-
-        JsonArray contents = new JsonArray();
-        contents.add(content);
+        JsonArray messages = new JsonArray();
+        messages.add(systemMessage);
+        messages.add(userMessage);
 
         JsonObject requestBody = new JsonObject();
-        requestBody.add("contents", contents);
+        requestBody.addProperty("model", "llama-3.3-70b-versatile");
+        requestBody.addProperty("max_tokens", 1024);
+        requestBody.addProperty("temperature", 0.3);
+        requestBody.add("messages", messages);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(GEMINI_URL + apiKey))
+                .uri(URI.create(GROQ_URL))
                 .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
@@ -70,17 +75,15 @@ public class AiService {
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
 
         if (jsonResponse.has("error")) {
-            throw new RuntimeException("Gemini API Error: " +
+            throw new RuntimeException("Groq API Error: " +
                     jsonResponse.getAsJsonObject("error").get("message").getAsString());
         }
 
         String text = jsonResponse
-                .getAsJsonArray("candidates")
+                .getAsJsonArray("choices")
                 .get(0).getAsJsonObject()
-                .getAsJsonObject("content")
-                .getAsJsonArray("parts")
-                .get(0).getAsJsonObject()
-                .get("text").getAsString();
+                .getAsJsonObject("message")
+                .get("content").getAsString();
 
         return text.replace("```json", "").replace("```", "").trim();
     }
