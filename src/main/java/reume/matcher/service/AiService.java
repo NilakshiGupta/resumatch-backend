@@ -17,8 +17,7 @@ public class AiService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    private static final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
 
@@ -42,6 +41,7 @@ public class AiService {
                 "Resume: " + shortResume + "\n" +
                 "Job Description: " + jobDescription;
 
+        // Build Gemini request body
         JsonObject textPart = new JsonObject();
         textPart.addProperty("text", prompt);
 
@@ -57,11 +57,9 @@ public class AiService {
         JsonObject requestBody = new JsonObject();
         requestBody.add("contents", contents);
 
-        String url = GEMINI_URL + "?key=" + apiKey;
-
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
+                .uri(URI.create(GEMINI_URL + apiKey))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
@@ -72,7 +70,7 @@ public class AiService {
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
 
         if (jsonResponse.has("error")) {
-            throw new RuntimeException("AI API Error: " +
+            throw new RuntimeException("Gemini API Error: " +
                     jsonResponse.getAsJsonObject("error").get("message").getAsString());
         }
 
