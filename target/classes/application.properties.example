@@ -1,7 +1,0 @@
-spring.application.name=matcher
-spring.datasource.url=jdbc:postgresql://HOST:PORT/DATABASE
-spring.datasource.username=YOUR_USERNAME
-spring.datasource.password=YOUR_PASSWORD
-spring.jpa.hibernate.ddl-auto=none
-openrouter.api.key=YOUR_OPENROUTER_KEY
-openrouter.model=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
