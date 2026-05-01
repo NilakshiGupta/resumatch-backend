@@ -96,4 +96,19 @@ public class ResumeController {
         String tailored = aiService.generateTailoredResume(resume.getRawText(), jobDescription);
         return ResponseEntity.ok(tailored);
     }
+    @PostMapping("/save-tailored")
+    public ResponseEntity<Resume> saveTailored(
+            @RequestBody java.util.Map<String, Object> request,
+            @RequestHeader("Authorization") String token) {
+
+        String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
+        UUID resumeId = UUID.fromString(request.get("resumeId").toString());
+        String jobTitle = request.get("jobTitle").toString();
+
+        // JSON data ko String mein convert karke save karenge
+        String tailoredData = new com.google.gson.Gson().toJson(request.get("tailoredData"));
+
+        Resume saved = resumeService.saveTailoredResume(resumeId, tailoredData, jobTitle, email);
+        return ResponseEntity.ok(saved);
+    }
 }

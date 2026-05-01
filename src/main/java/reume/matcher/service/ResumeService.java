@@ -90,4 +90,26 @@ public class ResumeService {
         resume.setIsActive(!resume.getIsActive());
         return resumeRepository.save(resume);
     }
+    public Resume saveTailoredResume(UUID parentResumeId, String tailoredJson, String jobTitle, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Resume parent = resumeRepository.findById(parentResumeId)
+                .orElseThrow(() -> new RuntimeException("Parent resume not found"));
+
+        Resume tailoredResume = new Resume();
+        tailoredResume.setUser(user);
+        tailoredResume.setParentResume(parent);
+        tailoredResume.setFileName("Tailored_" + jobTitle + ".pdf"); // Placeholder name
+        tailoredResume.setFileUrl("generated");
+        tailoredResume.setRawText(tailoredJson); // Hum tailored JSON ko hi rawText mein save kar rahe hain
+        tailoredResume.setIsActive(true);
+
+        // Versioning logic
+        int nextVersion = resumeRepository.findByParentResumeId(parentResumeId).size() + 2;
+        tailoredResume.setVersionNumber(nextVersion);
+        tailoredResume.setVersionLabel("Tailored for " + jobTitle);
+
+        return resumeRepository.save(tailoredResume);
+    }
 }
