@@ -34,16 +34,16 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Exact Vercel URL bina trailing slash (/) ke
-        config.setAllowedOrigins(Arrays.asList(
+        // Frontend URL (Bina slash ke)
+        config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "https://resumatch-frontend-two.vercel.app"
         ));
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L); // 1 ghante ke liye CORS pre-flight cache karega
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
@@ -57,7 +57,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Browser jo OPTIONS request bhejta hai, usey bina login ke allow karo
+                        // SABSE ZAROORI: Preflight requests (OPTIONS) ko hamesha allow karo
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated()
