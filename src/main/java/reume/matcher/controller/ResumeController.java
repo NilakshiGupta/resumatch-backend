@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import reume.matcher.config.JwtUtil;
 import reume.matcher.model.Resume;
+import reume.matcher.service.AiService;
 import reume.matcher.service.ResumeService;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ public class ResumeController {
 
     private final ResumeService resumeService;
     private final JwtUtil jwtUtil;
+    private final AiService aiService;
 
     @PostMapping("/upload")
     public ResponseEntity<Resume> uploadResume(
@@ -57,6 +59,7 @@ public class ResumeController {
 
         return ResponseEntity.ok(resumeService.getResumeVersions(parentResumeId));
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteResume(
             @PathVariable UUID id,
@@ -75,5 +78,22 @@ public class ResumeController {
         String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
         Resume resume = resumeService.toggleResume(id, email);
         return ResponseEntity.ok(resume);
+    }
+
+    @PostMapping("/tailor")
+    public ResponseEntity<String> tailorResume(
+            @RequestParam("resumeId") UUID resumeId,
+            @RequestParam("jobDescription") String jobDescription,
+            @RequestHeader("Authorization") String token) throws Exception {
+
+        String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
+        Resume resume = resumeService.getUserResumes(email)
+                .stream()
+                .filter(r -> r.getId().equals(resumeId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        String tailored = aiService.generateTailoredResume(resume.getRawText(), jobDescription);
+        return ResponseEntity.ok(tailored);
     }
 }

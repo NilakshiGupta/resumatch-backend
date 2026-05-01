@@ -67,6 +67,7 @@ public class ResumeService {
     public List<Resume> getResumeVersions(UUID parentResumeId) {
         return resumeRepository.findByParentResumeId(parentResumeId);
     }
+
     public void deleteResume(UUID id, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -75,7 +76,7 @@ public class ResumeService {
         if (!resume.getUser().getId().equals(user.getId())) {
             throw new RuntimeException("Unauthorized");
         }
-        resumeRepository.delete(resume);
+        resumeRepository.deleteById(id);
     }
 
     public Resume toggleResume(UUID id, String userEmail) {

@@ -14,17 +14,17 @@ import java.net.http.HttpResponse;
 @Service
 public class AiService {
 
-    @Value("${groq.api.key}")
+    @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GROQ_URL =
-            "https://api.groq.com/openai/v1/chat/completions";
+    private static final String GEMINI_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
 
         String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
 
-        String prompt = "You are an ATS expert. Analyze the resume against the job description.\n" +
+        String prompt = "You are an ATS (Applicant Tracking System) expert. Analyze the resume against the job description.\n" +
                 "Return ONLY a valid JSON object, no markdown, no extra text:\n" +
                 "{\n" +
                 "  \"matchPercentage\": 75,\n" +
@@ -42,102 +42,81 @@ public class AiService {
                 "Resume: " + shortResume + "\n" +
                 "Job Description: " + jobDescription;
 
-        // Build request body (OpenAI-compatible format)
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", "You are an ATS expert. Always respond with valid JSON only.");
+        return callGemini(prompt);
+    }
 
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", prompt);
+    public String generateTailoredResume(String resumeText, String jobDescription) throws Exception {
 
-        JsonArray messages = new JsonArray();
-        messages.add(systemMessage);
-        messages.add(userMessage);
+        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
+
+        String prompt = "You are an expert resume writer. Create a 100% ATS-optimized tailored resume.\n" +
+                "Return ONLY a valid JSON object, no markdown, no extra text:\n" +
+                "{\n" +
+                "  \"name\": \"Candidate Name\",\n" +
+                "  \"email\": \"email@example.com\",\n" +
+                "  \"phone\": \"+91 XXXXXXXXXX\",\n" +
+                "  \"location\": \"City, Country\",\n" +
+                "  \"linkedin\": \"linkedin.com/in/profile\",\n" +
+                "  \"summary\": \"2-3 line professional summary tailored to job\",\n" +
+                "  \"skills\": [\"Skill1\", \"Skill2\", \"Skill3\"],\n" +
+                "  \"experience\": [\n" +
+                "    {\"title\": \"Job Title\", \"company\": \"Company\", \"duration\": \"Jan 2022 - Present\", \"points\": [\"Achievement 1 with metrics\", \"Achievement 2\"]}\n" +
+                "  ],\n" +
+                "  \"education\": [\n" +
+                "    {\"degree\": \"B.Tech CSE\", \"institution\": \"University\", \"year\": \"2023\", \"gpa\": \"8.5\"}\n" +
+                "  ],\n" +
+                "  \"certifications\": [\"Cert 1\", \"Cert 2\"],\n" +
+                "  \"jobTitle\": \"Target Job Title\"\n" +
+                "}\n" +
+                "IMPORTANT: Use keywords from job description. Quantify achievements. Make it ATS-friendly.\n" +
+                "Original Resume: " + shortResume + "\n" +
+                "Job Description: " + jobDescription;
+
+        return callGemini(prompt);
+    }
+
+    private String callGemini(String prompt) throws Exception {
+        JsonObject textPart = new JsonObject();
+        textPart.addProperty("text", prompt);
+
+        JsonArray parts = new JsonArray();
+        parts.add(textPart);
+
+        JsonObject content = new JsonObject();
+        content.add("parts", parts);
+
+        JsonArray contents = new JsonArray();
+        contents.add(content);
 
         JsonObject requestBody = new JsonObject();
-        requestBody.addProperty("model", "llama-3.3-70b-versatile");
-        requestBody.addProperty("max_tokens", 1024);
-        requestBody.addProperty("temperature", 0.3);
-        requestBody.add("messages", messages);
+        requestBody.add("contents", contents);
+
+        String url = GEMINI_URL + "?key=" + apiKey;
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(GROQ_URL))
+                .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        System.out.println("FULL RESPONSE: " + response.body());
 
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
 
         if (jsonResponse.has("error")) {
-            throw new RuntimeException("Groq API Error: " +
+            throw new RuntimeException("AI API Error: " +
                     jsonResponse.getAsJsonObject("error").get("message").getAsString());
         }
 
         String text = jsonResponse
-                .getAsJsonArray("choices")
+                .getAsJsonArray("candidates")
                 .get(0).getAsJsonObject()
-                .getAsJsonObject("message")
-                .get("content").getAsString();
+                .getAsJsonObject("content")
+                .getAsJsonArray("parts")
+                .get(0).getAsJsonObject()
+                .get("text").getAsString();
 
         return text.replace("```json", "").replace("```", "").trim();
-    }
-    public String generateCoverLetter(String resumeText, String jobDescription,
-                                      String companyName, String jobTitle) throws Exception {
-        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
-
-        String prompt = "You are a professional cover letter writer. Write a compelling cover letter.\n" +
-                "Company: " + companyName + "\n" +
-                "Job Title: " + jobTitle + "\n" +
-                "Job Description: " + jobDescription + "\n" +
-                "Resume: " + shortResume + "\n\n" +
-                "Write a professional, personalized cover letter in 3-4 paragraphs. " +
-                "Return ONLY the cover letter text, no extra explanation.";
-
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", "You are a professional cover letter writer.");
-
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", prompt);
-
-        JsonArray messages = new JsonArray();
-        messages.add(systemMessage);
-        messages.add(userMessage);
-
-        JsonObject requestBody = new JsonObject();
-        requestBody.addProperty("model", "llama-3.3-70b-versatile");
-        requestBody.addProperty("max_tokens", 1024);
-        requestBody.addProperty("temperature", 0.7);
-        requestBody.add("messages", messages);
-
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(GROQ_URL))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                .build();
-
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-        JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-
-        if (jsonResponse.has("error")) {
-            throw new RuntimeException("Groq API Error: " +
-                    jsonResponse.getAsJsonObject("error").get("message").getAsString());
-        }
-
-        return jsonResponse
-                .getAsJsonArray("choices")
-                .get(0).getAsJsonObject()
-                .getAsJsonObject("message")
-                .get("content").getAsString();
     }
 }
