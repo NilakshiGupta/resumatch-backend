@@ -21,7 +21,6 @@ public class AiService {
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
-
         String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
 
         String prompt = "You are an ATS (Applicant Tracking System) expert. Analyze the resume against the job description.\n" +
@@ -46,7 +45,6 @@ public class AiService {
     }
 
     public String generateTailoredResume(String resumeText, String jobDescription) throws Exception {
-
         String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
 
         String prompt = "You are an expert resume writer. Create a 100% ATS-optimized tailored resume.\n" +
@@ -71,6 +69,24 @@ public class AiService {
                 "IMPORTANT: Use keywords from job description. Quantify achievements. Make it ATS-friendly.\n" +
                 "Original Resume: " + shortResume + "\n" +
                 "Job Description: " + jobDescription;
+
+        return callGemini(prompt);
+    }
+
+    // --- Naya Method Jo Missing Tha ---
+    public String generateCoverLetter(String resumeText, String jobDescription, String companyName, String jobTitle) throws Exception {
+        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
+
+        String prompt = "You are an expert career coach. Write a professional and persuasive cover letter.\n" +
+                "Company: " + companyName + "\n" +
+                "Role: " + jobTitle + "\n" +
+                "Job Description: " + jobDescription + "\n" +
+                "Resume Content: " + shortResume + "\n\n" +
+                "Instructions:\n" +
+                "1. Focus on matching candidate skills with company needs.\n" +
+                "2. Tone: Professional and enthusiastic.\n" +
+                "3. Length: 250-350 words.\n" +
+                "4. Return ONLY the text of the letter. No markdown, no 'Here is your letter' introduction.";
 
         return callGemini(prompt);
     }
@@ -117,6 +133,7 @@ public class AiService {
                 .get(0).getAsJsonObject()
                 .get("text").getAsString();
 
+        // Agar response JSON nahi hai (jaise cover letter), toh markdown remove karo
         return text.replace("```json", "").replace("```", "").trim();
     }
 }
