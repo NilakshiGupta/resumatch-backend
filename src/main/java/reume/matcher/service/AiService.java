@@ -87,4 +87,57 @@ public class AiService {
 
         return text.replace("```json", "").replace("```", "").trim();
     }
+    public String generateCoverLetter(String resumeText, String jobDescription,
+                                      String companyName, String jobTitle) throws Exception {
+        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
+
+        String prompt = "You are a professional cover letter writer. Write a compelling cover letter.\n" +
+                "Company: " + companyName + "\n" +
+                "Job Title: " + jobTitle + "\n" +
+                "Job Description: " + jobDescription + "\n" +
+                "Resume: " + shortResume + "\n\n" +
+                "Write a professional, personalized cover letter in 3-4 paragraphs. " +
+                "Return ONLY the cover letter text, no extra explanation.";
+
+        JsonObject systemMessage = new JsonObject();
+        systemMessage.addProperty("role", "system");
+        systemMessage.addProperty("content", "You are a professional cover letter writer.");
+
+        JsonObject userMessage = new JsonObject();
+        userMessage.addProperty("role", "user");
+        userMessage.addProperty("content", prompt);
+
+        JsonArray messages = new JsonArray();
+        messages.add(systemMessage);
+        messages.add(userMessage);
+
+        JsonObject requestBody = new JsonObject();
+        requestBody.addProperty("model", "llama-3.3-70b-versatile");
+        requestBody.addProperty("max_tokens", 1024);
+        requestBody.addProperty("temperature", 0.7);
+        requestBody.add("messages", messages);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(GROQ_URL))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + apiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+
+        if (jsonResponse.has("error")) {
+            throw new RuntimeException("Groq API Error: " +
+                    jsonResponse.getAsJsonObject("error").get("message").getAsString());
+        }
+
+        return jsonResponse
+                .getAsJsonArray("choices")
+                .get(0).getAsJsonObject()
+                .getAsJsonObject("message")
+                .get("content").getAsString();
+    }
 }

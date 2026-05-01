@@ -57,4 +57,23 @@ public class ResumeController {
 
         return ResponseEntity.ok(resumeService.getResumeVersions(parentResumeId));
     }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteResume(
+            @PathVariable UUID id,
+            @RequestHeader("Authorization") String token) {
+
+        String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
+        resumeService.deleteResume(id, email);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/toggle")
+    public ResponseEntity<Resume> toggleResume(
+            @PathVariable UUID id,
+            @RequestHeader("Authorization") String token) {
+
+        String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
+        Resume resume = resumeService.toggleResume(id, email);
+        return ResponseEntity.ok(resume);
+    }
 }

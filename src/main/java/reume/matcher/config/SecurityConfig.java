@@ -33,7 +33,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://resumatch-frontend-two.vercel.app"
+                "https://resumatch-backend-production-c7cd.up.railway.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
         config.setAllowedHeaders(List.of("*"));

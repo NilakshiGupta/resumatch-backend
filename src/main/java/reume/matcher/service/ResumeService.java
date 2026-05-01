@@ -67,4 +67,26 @@ public class ResumeService {
     public List<Resume> getResumeVersions(UUID parentResumeId) {
         return resumeRepository.findByParentResumeId(parentResumeId);
     }
+    public void deleteResume(UUID id, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Resume resume = resumeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+        resumeRepository.delete(resume);
+    }
+
+    public Resume toggleResume(UUID id, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Resume resume = resumeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+        if (!resume.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+        resume.setIsActive(!resume.getIsActive());
+        return resumeRepository.save(resume);
+    }
 }
