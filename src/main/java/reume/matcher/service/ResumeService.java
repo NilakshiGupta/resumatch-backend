@@ -10,7 +10,6 @@ import reume.matcher.model.Resume;
 import reume.matcher.model.User;
 import reume.matcher.repository.ResumeRepository;
 import reume.matcher.repository.UserRepository;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -23,93 +22,44 @@ public class ResumeService {
     private final UserRepository userRepository;
 
     public Resume uploadResume(MultipartFile file, String userEmail) throws IOException {
-        return uploadResume(file, userEmail, null, null);
-    }
-
-    public Resume uploadResume(MultipartFile file, String userEmail,
-                               UUID parentResumeId, String versionLabel) throws IOException {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new RuntimeException("User not found"));
         PDDocument document = Loader.loadPDF(file.getBytes());
-        PDFTextStripper stripper = new PDFTextStripper();
-        String rawText = stripper.getText(document);
+        String rawText = new PDFTextStripper().getText(document);
         document.close();
 
         Resume resume = new Resume();
         resume.setUser(user);
         resume.setFileName(file.getOriginalFilename());
-        resume.setFileUrl("local");
         resume.setRawText(rawText);
+        resume.setVersionNumber(1);
         resume.setIsActive(true);
-
-        if (parentResumeId != null) {
-            Resume parent = resumeRepository.findById(parentResumeId)
-                    .orElseThrow(() -> new RuntimeException("Parent resume not found"));
-            resume.setParentResume(parent);
-            int nextVersion = resumeRepository.findByUserId(user.getId()).size() + 1;
-            resume.setVersionNumber(nextVersion);
-            resume.setVersionLabel(versionLabel != null ? versionLabel : "v" + nextVersion);
-        } else {
-            resume.setVersionNumber(1);
-            resume.setVersionLabel(versionLabel != null ? versionLabel : "v1");
-        }
-
         return resumeRepository.save(resume);
     }
 
-    public List<Resume> getUserResumes(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public Resume saveTailoredResume(UUID parentResumeId, String tailoredJson, String jobTitle, String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new RuntimeException("User not found"));
+        Resume parent = resumeRepository.findById(parentResumeId).orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        Resume tailored = new Resume();
+        tailored.setUser(user);
+        tailored.setParentResume(parent);
+        tailored.setFileName("Tailored_" + jobTitle.replace(" ", "_") + ".json");
+        tailored.setRawText(tailoredJson);
+        tailored.setIsActive(true);
+
+        int version = resumeRepository.findByParentResumeId(parentResumeId).size() + 2;
+        tailored.setVersionNumber(version);
+        tailored.setVersionLabel("Tailored for " + jobTitle);
+
+        return resumeRepository.save(tailored);
+    }
+
+    public List<Resume> getUserResumes(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
         return resumeRepository.findByUserId(user.getId());
     }
 
-    public List<Resume> getResumeVersions(UUID parentResumeId) {
-        return resumeRepository.findByParentResumeId(parentResumeId);
-    }
-
-    public void deleteResume(UUID id, String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Resume resume = resumeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Resume not found"));
-        if (!resume.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized");
-        }
+    public void deleteResume(UUID id, String email) {
         resumeRepository.deleteById(id);
-    }
-
-    public Resume toggleResume(UUID id, String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Resume resume = resumeRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Resume not found"));
-        if (!resume.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized");
-        }
-        resume.setIsActive(!resume.getIsActive());
-        return resumeRepository.save(resume);
-    }
-    public Resume saveTailoredResume(UUID parentResumeId, String tailoredJson, String jobTitle, String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Resume parent = resumeRepository.findById(parentResumeId)
-                .orElseThrow(() -> new RuntimeException("Parent resume not found"));
-
-        Resume tailoredResume = new Resume();
-        tailoredResume.setUser(user);
-        tailoredResume.setParentResume(parent);
-        tailoredResume.setFileName("Tailored_" + jobTitle + ".pdf"); // Placeholder name
-        tailoredResume.setFileUrl("generated");
-        tailoredResume.setRawText(tailoredJson); // Hum tailored JSON ko hi rawText mein save kar rahe hain
-        tailoredResume.setIsActive(true);
-
-        // Versioning logic
-        int nextVersion = resumeRepository.findByParentResumeId(parentResumeId).size() + 2;
-        tailoredResume.setVersionNumber(nextVersion);
-        tailoredResume.setVersionLabel("Tailored for " + jobTitle);
-
-        return resumeRepository.save(tailoredResume);
     }
 }

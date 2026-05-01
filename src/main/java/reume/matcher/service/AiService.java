@@ -5,7 +5,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -17,123 +16,49 @@ public class AiService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    private static final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
-        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
-
-        String prompt = "You are an ATS (Applicant Tracking System) expert. Analyze the resume against the job description.\n" +
-                "Return ONLY a valid JSON object, no markdown, no extra text:\n" +
-                "{\n" +
-                "  \"matchPercentage\": 75,\n" +
-                "  \"atsScore\": 68,\n" +
-                "  \"jobTitle\": \"Software Engineer\",\n" +
-                "  \"industry\": \"SOFTWARE_ENGINEERING\",\n" +
-                "  \"missingKeywords\": \"Docker, Kubernetes, AWS\",\n" +
-                "  \"matchedKeywords\": \"Java, Spring Boot, REST API\",\n" +
-                "  \"suggestions\": \"Add cloud platform experience.\",\n" +
-                "  \"improvementTips\": \"1. Quantify achievements. 2. Add certifications.\",\n" +
-                "  \"experienceGap\": \"Job needs 5 years, resume shows 2 years.\",\n" +
-                "  \"skillsGap\": \"Missing: Docker, AWS, Kubernetes\"\n" +
-                "}\n" +
-                "industry must be one of: SOFTWARE_ENGINEERING, DATA_SCIENCE, DEVOPS, FRONTEND, PRODUCT_MANAGEMENT\n" +
-                "Resume: " + shortResume + "\n" +
-                "Job Description: " + jobDescription;
-
+        String prompt = "Analyze this resume against the JD. Return ONLY JSON: {matchPercentage, atsScore, jobTitle, industry, missingKeywords, matchedKeywords, suggestions, improvementTips, experienceGap, skillsGap}. Resume: " + resumeText + " JD: " + jobDescription;
         return callGemini(prompt);
     }
 
     public String generateTailoredResume(String resumeText, String jobDescription) throws Exception {
-        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
-
-        String prompt = "You are an expert resume writer. Create a 100% ATS-optimized tailored resume.\n" +
-                "Return ONLY a valid JSON object, no markdown, no extra text:\n" +
-                "{\n" +
-                "  \"name\": \"Candidate Name\",\n" +
-                "  \"email\": \"email@example.com\",\n" +
-                "  \"phone\": \"+91 XXXXXXXXXX\",\n" +
-                "  \"location\": \"City, Country\",\n" +
-                "  \"linkedin\": \"linkedin.com/in/profile\",\n" +
-                "  \"summary\": \"2-3 line professional summary tailored to job\",\n" +
-                "  \"skills\": [\"Skill1\", \"Skill2\", \"Skill3\"],\n" +
-                "  \"experience\": [\n" +
-                "    {\"title\": \"Job Title\", \"company\": \"Company\", \"duration\": \"Jan 2022 - Present\", \"points\": [\"Achievement 1 with metrics\", \"Achievement 2\"]}\n" +
-                "  ],\n" +
-                "  \"education\": [\n" +
-                "    {\"degree\": \"B.Tech CSE\", \"institution\": \"University\", \"year\": \"2023\", \"gpa\": \"8.5\"}\n" +
-                "  ],\n" +
-                "  \"certifications\": [\"Cert 1\", \"Cert 2\"],\n" +
-                "  \"jobTitle\": \"Target Job Title\"\n" +
-                "}\n" +
-                "IMPORTANT: Use keywords from job description. Quantify achievements. Make it ATS-friendly.\n" +
-                "Original Resume: " + shortResume + "\n" +
-                "Job Description: " + jobDescription;
-
+        String prompt = "Tailor this resume for the JD. Return ONLY JSON: {name, email, phone, location, linkedin, summary, skills[], experience:[{title, company, duration, points[]}], education:[], certifications[], jobTitle}. Use JD keywords. Resume: " + resumeText + " JD: " + jobDescription;
         return callGemini(prompt);
     }
 
-    // --- Naya Method Jo Missing Tha ---
     public String generateCoverLetter(String resumeText, String jobDescription, String companyName, String jobTitle) throws Exception {
-        String shortResume = resumeText.length() > 2000 ? resumeText.substring(0, 2000) : resumeText;
-
-        String prompt = "You are an expert career coach. Write a professional and persuasive cover letter.\n" +
-                "Company: " + companyName + "\n" +
-                "Role: " + jobTitle + "\n" +
-                "Job Description: " + jobDescription + "\n" +
-                "Resume Content: " + shortResume + "\n\n" +
-                "Instructions:\n" +
-                "1. Focus on matching candidate skills with company needs.\n" +
-                "2. Tone: Professional and enthusiastic.\n" +
-                "3. Length: 250-350 words.\n" +
-                "4. Return ONLY the text of the letter. No markdown, no 'Here is your letter' introduction.";
-
+        String prompt = "Write a professional cover letter for " + jobTitle + " at " + companyName + ". Use this resume data: " + resumeText + " and JD: " + jobDescription + ". Return ONLY the text.";
         return callGemini(prompt);
     }
 
     private String callGemini(String prompt) throws Exception {
         JsonObject textPart = new JsonObject();
         textPart.addProperty("text", prompt);
-
         JsonArray parts = new JsonArray();
         parts.add(textPart);
-
         JsonObject content = new JsonObject();
         content.add("parts", parts);
-
         JsonArray contents = new JsonArray();
         contents.add(content);
-
         JsonObject requestBody = new JsonObject();
         requestBody.add("contents", contents);
 
-        String url = GEMINI_URL + "?key=" + apiKey;
-
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
+                .uri(URI.create(GEMINI_URL + "?key=" + apiKey))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
 
-        if (jsonResponse.has("error")) {
-            throw new RuntimeException("AI API Error: " +
-                    jsonResponse.getAsJsonObject("error").get("message").getAsString());
-        }
-
-        String text = jsonResponse
-                .getAsJsonArray("candidates")
-                .get(0).getAsJsonObject()
-                .getAsJsonObject("content")
-                .getAsJsonArray("parts")
-                .get(0).getAsJsonObject()
+        String text = jsonResponse.getAsJsonArray("candidates").get(0).getAsJsonObject()
+                .getAsJsonObject("content").getAsJsonArray("parts").get(0).getAsJsonObject()
                 .get("text").getAsString();
 
-        // Agar response JSON nahi hai (jaise cover letter), toh markdown remove karo
         return text.replace("```json", "").replace("```", "").trim();
     }
 }
