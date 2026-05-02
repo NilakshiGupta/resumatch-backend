@@ -1,7 +1,22 @@
-spring.application.name=matcher
-spring.datasource.url=jdbc:postgresql://HOST:PORT/DATABASE
-spring.datasource.username=YOUR_USERNAME
-spring.datasource.password=YOUR_PASSWORD
-spring.jpa.hibernate.ddl-auto=none
-openrouter.api.key=YOUR_OPENROUTER_KEY
-openrouter.model=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+spring.datasource.url=${DB_URL}
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# ── JWT (env variable se aayega — HARDCODE MAT KARO) ──────
+jwt.secret=${JWT_SECRET}
+
+# ── Groq AI ───────────────────────────────────────────────
+groq.api.key=${GROQ_API_KEY}
+
+# ── File Upload ───────────────────────────────────────────
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+
+# ── Logging ───────────────────────────────────────────────
+logging.level.reume.matcher=INFO
+logging.level.org.springframework.security=WARN

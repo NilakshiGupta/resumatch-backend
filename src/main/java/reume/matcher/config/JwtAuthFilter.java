@@ -23,9 +23,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // CORS OPTIONS Fix
+        // CORS OPTIONS Fix — filterChain.doFilter() zaroori hai warna CORS headers nahi lagenge
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_OK);
+            filterChain.doFilter(request, response); // ✅ FIX: pehle ye missing tha
             return;
         }
 

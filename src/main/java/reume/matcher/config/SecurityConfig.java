@@ -37,7 +37,8 @@ public class SecurityConfig {
         // Frontend URL (Bina slash ke)
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://resumatch-frontend-two.vercel.app"
+                "https://resumatch-frontend-two.vercel.app",
+                        "http://localhost:5174"
         ));
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));

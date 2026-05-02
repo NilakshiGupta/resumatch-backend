@@ -2,17 +2,22 @@ package reume.matcher.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
 import java.security.Key;
 import java.util.Date;
 
 @Component
 public class JwtUtil {
-    private final String SECRET = "resumatch_super_secret_key_which_is_long_enough_123456";
+
+    @Value("${jwt.secret}")
+    private String secret;
+
     private final long EXPIRATION = 86400000; // 24 hours
 
     private Key getKey() {
-        return Keys.hmacShaKeyFor(SECRET.getBytes());
+        return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
     public String generateToken(String email) {
