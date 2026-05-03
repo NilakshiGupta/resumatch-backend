@@ -41,6 +41,7 @@ public class ResumeService {
         Resume resume = new Resume();
         resume.setUser(user);
         resume.setFileName(file.getOriginalFilename());
+        resume.setFileUrl(file.getOriginalFilename());
         resume.setRawText(rawText);
         resume.setVersionNumber(1);
         resume.setIsActive(true);

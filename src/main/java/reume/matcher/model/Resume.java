@@ -21,7 +21,7 @@ public class Resume {
     @Column(name = "file_name")
     private String fileName;
 
-    @Column(name = "file_url")
+    @Column(name = "file_url", nullable = true)
     private String fileUrl;
 
     @Column(name = "raw_text", columnDefinition = "TEXT")
