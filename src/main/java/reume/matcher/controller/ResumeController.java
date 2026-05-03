@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import reume.matcher.config.JwtUtil;
 import reume.matcher.model.Resume;
+import reume.matcher.model.User;
+import reume.matcher.repository.UserRepository;
 import reume.matcher.service.AiService;
 import reume.matcher.service.ResumeService;
 import com.google.gson.Gson;
@@ -26,6 +28,7 @@ public class ResumeController {
     private final ResumeService resumeService;
     private final AiService aiService;
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @PostMapping("/upload")
     public ResponseEntity<Resume> upload(
@@ -60,6 +63,11 @@ public class ResumeController {
         UUID resumeId = UUID.fromString(body.get("resumeId"));
         String jobDescription = body.get("jobDescription");
         String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
+
+        // Database se user lo — 100% accurate name & email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         Resume resume = resumeService.getUserResumes(email).stream()
                 .filter(r -> r.getId().equals(resumeId))
                 .findFirst()
@@ -67,28 +75,28 @@ public class ResumeController {
 
         String rawText = resume.getRawText();
 
-        // Step 1: Regex se ground-truth personal details
-        String detectedEmail    = extractEmail(rawText);
+        // Regex se personal details extract karo
         String detectedPhone    = extractPhone(rawText);
-        String detectedName     = extractName(rawText);
-        String detectedCollege  = extractCollege(rawText);
         String detectedLinkedin = extractLinkedin(rawText);
         String detectedGithub   = extractGithub(rawText);
+        String detectedCollege  = extractCollege(rawText);
 
-        // Step 2: AI se tailored resume JSON
+        // AI se tailored resume JSON
         String aiJson = aiService.generateTailoredResume(rawText, jobDescription);
 
-        // Step 3: Missing details inject karo
         try {
             JsonObject obj = JsonParser.parseString(aiJson).getAsJsonObject();
 
-            injectIfBlank(obj, "email",    detectedEmail);
+            // Database se inject karo — AI pe depend mat karo
+            obj.addProperty("name", user.getName());
+            obj.addProperty("email", user.getEmail());
+
+            // Regex se inject karo agar blank hai
             injectIfBlank(obj, "phone",    detectedPhone);
-            injectIfBlank(obj, "name",     detectedName);
             injectIfBlank(obj, "linkedin", detectedLinkedin);
             injectIfBlank(obj, "github",   detectedGithub);
 
-            // Ensure array fields exist (avoid NPE on frontend)
+            // Array fields ensure karo
             ensureArray(obj, "skills");
             ensureArray(obj, "experience");
             ensureArray(obj, "education");
@@ -96,7 +104,7 @@ public class ResumeController {
             ensureArray(obj, "certifications");
             ensureArray(obj, "achievements");
 
-            // College injection into education array
+            // College injection
             if (detectedCollege != null && obj.has("education") && obj.get("education").isJsonArray()) {
                 JsonArray eduArray = obj.getAsJsonArray("education");
                 eduArray.forEach(el -> {
@@ -149,12 +157,6 @@ public class ResumeController {
 
     // ── Regex Helpers ──────────────────────────────────────────────────────
 
-    private String extractEmail(String text) {
-        Matcher m = Pattern.compile("[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}")
-                .matcher(text);
-        return m.find() ? m.group() : null;
-    }
-
     private String extractPhone(String text) {
         String compact = text.replaceAll("[\\s]", "");
         Matcher m1 = Pattern.compile("(\\+?91[\\-]?)?[6-9]\\d{9}").matcher(compact);
@@ -164,31 +166,17 @@ public class ResumeController {
     }
 
     private String extractLinkedin(String text) {
-        Matcher m = Pattern.compile("(?:https?://)?(?:www\\.)?linkedin\\.com/in/[\\w\\-]+/?",
+        Matcher m = Pattern.compile(
+                "(?:https?://)?(?:www\\.)?linkedin\\.com/in/[\\w\\-]+/?",
                 Pattern.CASE_INSENSITIVE).matcher(text);
         return m.find() ? m.group().trim() : null;
     }
 
     private String extractGithub(String text) {
-        Matcher m = Pattern.compile("(?:https?://)?(?:www\\.)?github\\.com/[\\w\\-]+/?",
+        Matcher m = Pattern.compile(
+                "(?:https?://)?(?:www\\.)?github\\.com/[\\w\\-]+/?",
                 Pattern.CASE_INSENSITIVE).matcher(text);
         return m.find() ? m.group().trim() : null;
-    }
-
-    private String extractName(String text) {
-        String[] lines = text.split("\\r?\\n");
-        for (String line : lines) {
-            String t = line.trim();
-            if (!t.isEmpty() && t.length() >= 3 && t.length() < 60
-                    && !t.contains("@") && !t.matches(".*\\d{5,}.*")
-                    && !t.toLowerCase().contains("http")
-                    && !t.toLowerCase().contains("resume")
-                    && !t.toLowerCase().contains("curriculum vitae")
-                    && !t.toLowerCase().contains("cv")) {
-                return t;
-            }
-        }
-        return null;
     }
 
     private String extractCollege(String text) {

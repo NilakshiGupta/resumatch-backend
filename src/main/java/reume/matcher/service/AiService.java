@@ -67,118 +67,85 @@ public class AiService {
         String fullResume = cap(resumeText, 10000);
 
         String prompt =
-                "You are an expert ATS resume writer. Your job is to tailor the given resume " +
-                        "to exactly match the job description for maximum ATS score.\n\n" +
+                "You are a world-class ATS resume optimizer. Your ONLY goal is to tailor " +
+                        "the candidate's resume to achieve MAXIMUM ATS score for the given job description.\n\n" +
 
-                        "=== STRICT EXTRACTION RULES — READ CAREFULLY ===\n\n" +
+                        "=== PERSONAL DETAILS EXTRACTION — MANDATORY ===\n\n" +
 
-                        "NAME:\n" +
-                        "- Take the VERY FIRST non-empty line of the resume text as the candidate name.\n\n" +
+                        "NAME: Take the VERY FIRST non-empty line of resume as name.\n\n" +
 
-                        "EMAIL:\n" +
-                        "- Search for any token containing '@' — that is the email.\n\n" +
+                        "EMAIL: Find any token containing '@' — that is the email.\n\n" +
 
-                        "PHONE:\n" +
-                        "- Search for 10-digit number sequences, or numbers prefixed with +91 or 91.\n\n" +
+                        "PHONE: Find 10-digit number or +91 prefixed number.\n\n" +
 
-                        "LINKEDIN:\n" +
-                        "- Search for any URL or text containing 'linkedin.com' or 'linkedin' — extract it as-is.\n" +
-                        "- If not found, output empty string \"\".\n\n" +
+                        "LINKEDIN: Find text containing 'linkedin.com' — extract as-is including path.\n\n" +
 
-                        "GITHUB:\n" +
-                        "- Search for any URL or text containing 'github.com' or 'github' — extract it as-is.\n" +
-                        "- If not found, output empty string \"\".\n\n" +
+                        "GITHUB: Find text containing 'github.com' — extract as-is including path.\n\n" +
 
-                        "COLLEGE / UNIVERSITY (MOST IMPORTANT — DO NOT SKIP):\n" +
-                        "- Scan EVERY line of the resume text.\n" +
-                        "- If ANY line contains one of these words (case-insensitive), that line IS the college name:\n" +
-                        "  university, college, institute, iit, nit, polytechnic, school of, vidyalaya, academy\n" +
-                        "- Also look for lines near degree keywords (B.Tech, MCA, BCA, MBA, B.Sc, M.Sc, B.E, M.Tech).\n" +
-                        "- The college name is usually on the SAME line or the line IMMEDIATELY AFTER the degree.\n" +
-                        "- NEVER output 'Not specified' for college. If you cannot find it, output an empty string \"\".\n\n" +
+                        "=== ATS OPTIMIZATION — MANDATORY RULES ===\n\n" +
 
-                        "DEGREE:\n" +
-                        "- Extract: B.Tech / MCA / BCA / MBA / B.Sc / M.Sc / B.E / M.Tech etc.\n\n" +
+                        "1. SKILLS: List JD's exact keywords FIRST, then candidate's other skills.\n" +
+                        "2. SUMMARY: Must contain at least 5 exact phrases from the JD. Make it 3 sentences.\n" +
+                        "3. EXPERIENCE: Rewrite each bullet point to include JD keywords naturally.\n" +
+                        "   - Keep all original numbers/metrics (%, counts, scale).\n" +
+                        "   - Add JD technologies where candidate has used similar ones.\n" +
+                        "4. PROJECTS: Rewrite descriptions to highlight JD-relevant technologies.\n" +
+                        "5. JOB TITLE: Use EXACT job title from JD — one title only, no slashes.\n\n" +
 
-                        "YEAR:\n" +
-                        "- Find a 4-digit year (e.g. 2024, 2025, 2026) near the degree/college.\n\n" +
+                        "=== EDUCATION EXTRACTION ===\n\n" +
 
-                        "JOB TITLE:\n" +
-                        "- Output ONE single concise job title taken directly from the job description.\n" +
-                        "- NEVER use slashes, NEVER combine multiple titles.\n" +
-                        "- Example CORRECT: \"Full Stack Developer\"\n" +
-                        "- Example WRONG:   \"Full Stack Developer / Software Engineer / Azure Developer\"\n\n" +
+                        "- Find lines with: university, college, institute, iit, nit, b.tech, mca, bca, mba, b.sc, m.tech\n" +
+                        "- Extract degree, full college name, and graduation year.\n" +
+                        "- NEVER write 'Not specified' — use empty string if not found.\n\n" +
 
-                        "PROJECTS (VERY IMPORTANT — extract ALL projects from resume):\n" +
-                        "- Look for sections titled: Projects, Personal Projects, Academic Projects, Key Projects.\n" +
-                        "- For each project extract: name, description (1-2 sentences with tech stack), techStack (array of technologies used).\n" +
-                        "- Rewrite descriptions to include JD keywords where relevant.\n" +
-                        "- If no projects found, output empty array [].\n\n" +
+                        "=== CERTIFICATIONS ===\n" +
+                        "- Extract all certifications from resume.\n" +
+                        "- Add JD-relevant certifications the candidate likely has based on their skills.\n\n" +
 
-                        "CERTIFICATIONS:\n" +
-                        "- Look for sections titled: Certifications, Certificates, Courses, Training.\n" +
-                        "- For each: extract name and issuer (if mentioned).\n" +
-                        "- If none found, output empty array [].\n\n" +
-
-                        "ACHIEVEMENTS:\n" +
-                        "- Look for sections titled: Achievements, Honors, Awards, Publications, Extra-Curricular.\n" +
-                        "- Also look for IEEE papers, hackathon wins, contest rankings, etc.\n" +
-                        "- Extract each as a single string.\n" +
-                        "- If none found, output empty array [].\n\n" +
-
-                        "=== ATS OPTIMIZATION RULES ===\n" +
-                        "- Mirror EXACT keywords from the job description in skills and experience.\n" +
-                        "- Rewrite summary using the JD's exact terminology and role requirements.\n" +
-                        "- Add quantified achievements wherever possible (%, numbers, scale).\n" +
-                        "- Include ALL technologies from the JD that the candidate has used.\n\n" +
-
-                        "=== OUTPUT FORMAT ===\n" +
-                        "Return ONLY raw JSON — no markdown fences, no explanation:\n" +
+                        "=== OUTPUT — STRICT JSON ONLY ===\n" +
+                        "No markdown, no explanation, no ```json. Raw JSON only:\n" +
                         "{\n" +
-                        "  \"name\": \"Candidate Full Name\",\n" +
+                        "  \"name\": \"Full Name\",\n" +
                         "  \"email\": \"email@example.com\",\n" +
                         "  \"phone\": \"+91-XXXXXXXXXX\",\n" +
                         "  \"linkedin\": \"linkedin.com/in/username\",\n" +
                         "  \"github\": \"github.com/username\",\n" +
-                        "  \"jobTitle\": \"Single Job Title From JD\",\n" +
-                        "  \"summary\": \"2-3 sentences packed with JD keywords\",\n" +
-                        "  \"skills\": [\"Skill1\", \"Skill2\"],\n" +
+                        "  \"jobTitle\": \"Exact Job Title From JD\",\n" +
+                        "  \"summary\": \"3 sentences with JD keywords packed in\",\n" +
+                        "  \"skills\": [\"JD Skill 1\", \"JD Skill 2\", \"Candidate Skill 3\"],\n" +
                         "  \"experience\": [\n" +
                         "    {\n" +
                         "      \"title\": \"Job Title\",\n" +
                         "      \"company\": \"Company Name\",\n" +
                         "      \"duration\": \"Mon YYYY - Mon YYYY\",\n" +
-                        "      \"points\": [\"Achievement 1\", \"Achievement 2\"]\n" +
+                        "      \"points\": [\n" +
+                        "        \"Rewritten bullet with JD keywords and original metrics\"\n" +
+                        "      ]\n" +
                         "    }\n" +
                         "  ],\n" +
                         "  \"projects\": [\n" +
                         "    {\n" +
                         "      \"name\": \"Project Name\",\n" +
-                        "      \"description\": \"What it does, technologies used, impact.\",\n" +
-                        "      \"techStack\": [\"React\", \"Node.js\", \"MongoDB\"]\n" +
+                        "      \"description\": \"JD-optimized description with impact metrics\",\n" +
+                        "      \"techStack\": [\"Tech1\", \"Tech2\"]\n" +
                         "    }\n" +
                         "  ],\n" +
                         "  \"certifications\": [\n" +
-                        "    { \"name\": \"Certification Name\", \"issuer\": \"Issuing Organization\" }\n" +
+                        "    {\"name\": \"Cert Name\", \"issuer\": \"Issuer\"}\n" +
                         "  ],\n" +
                         "  \"achievements\": [\n" +
-                        "    \"Published IEEE paper on XYZ\",\n" +
-                        "    \"Won Hackathon 2024\"\n" +
+                        "    \"Achievement 1\"\n" +
                         "  ],\n" +
                         "  \"education\": [\n" +
                         "    {\n" +
-                        "      \"degree\": \"Degree Name\",\n" +
-                        "      \"college\": \"Full University or College Name\",\n" +
+                        "      \"degree\": \"Degree\",\n" +
+                        "      \"college\": \"Full College Name\",\n" +
                         "      \"year\": \"YYYY\"\n" +
                         "    }\n" +
                         "  ]\n" +
                         "}\n\n" +
-
-                        "=== RESUME TEXT ===\n" +
-                        fullResume + "\n\n" +
-
-                        "=== JOB DESCRIPTION ===\n" +
-                        jobDescription;
+                        "=== RESUME ===\n" + fullResume + "\n\n" +
+                        "=== JOB DESCRIPTION ===\n" + jobDescription;
 
         return callGroq(prompt, 0.1, 4096);
     }
