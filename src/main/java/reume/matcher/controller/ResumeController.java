@@ -60,8 +60,11 @@ public class ResumeController {
             @RequestBody Map<String, String> body,
             @RequestHeader("Authorization") String token) throws Exception {
 
-        UUID resumeId = UUID.fromString(body.get("resumeId"));
+        UUID resumeId      = UUID.fromString(body.get("resumeId"));
         String jobDescription = body.get("jobDescription");
+        // Frontend se companyType aayega: "product" | "service" | "both"
+        String companyType = body.getOrDefault("companyType", "both");
+
         String email = jwtUtil.extractEmail(token.replace("Bearer ", ""));
 
         // Database se user lo — 100% accurate name & email
@@ -81,14 +84,14 @@ public class ResumeController {
         String detectedGithub   = extractGithub(rawText);
         String detectedCollege  = extractCollege(rawText);
 
-        // AI se tailored resume JSON
-        String aiJson = aiService.generateTailoredResume(rawText, jobDescription);
+        // AI se tailored resume JSON — companyType pass karo
+        String aiJson = aiService.generateTailoredResume(rawText, jobDescription, companyType);
 
         try {
             JsonObject obj = JsonParser.parseString(aiJson).getAsJsonObject();
 
             // Database se inject karo — AI pe depend mat karo
-            obj.addProperty("name", user.getName());
+            obj.addProperty("name",  user.getName());
             obj.addProperty("email", user.getEmail());
 
             // Regex se inject karo agar blank hai
@@ -117,6 +120,9 @@ public class ResumeController {
                 });
             }
 
+            // companyType bhi response mein bhej do (frontend use kar sakta hai)
+            obj.addProperty("companyType", companyType);
+
             return ResponseEntity.ok(obj.toString());
 
         } catch (Exception e) {
@@ -141,7 +147,7 @@ public class ResumeController {
         return ResponseEntity.ok(resumeService.getUserResumes(email));
     }
 
-    // ── Injection helpers ──────────────────────────────────────────────────
+    // ── Injection helpers ──────────────────────────────────────────────────────
 
     private void injectIfBlank(JsonObject obj, String key, String value) {
         if (value == null) return;
@@ -155,7 +161,7 @@ public class ResumeController {
             obj.add(key, new JsonArray());
     }
 
-    // ── Regex Helpers ──────────────────────────────────────────────────────
+    // ── Regex Helpers ──────────────────────────────────────────────────────────
 
     private String extractPhone(String text) {
         String compact = text.replaceAll("[\\s]", "");

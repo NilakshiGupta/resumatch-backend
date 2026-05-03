@@ -19,91 +19,118 @@ public class AiService {
 
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+    // ── ANALYZE ──────────────────────────────────────────────────────────────
     public String analyzeResume(String resumeText, String jobDescription) throws Exception {
         String resume = cap(resumeText, 4000);
 
         String prompt =
-                "You are an expert ATS analyst. Analyze the resume against the job description.\n" +
-                        "Return ONLY valid JSON, no markdown:\n" +
+                "You are a senior ATS engineer at a top-tier MNC. Analyze this resume against the JD with zero sugarcoating.\n" +
+                        "Score strictly — a fresher with 1 internship should NOT get above 55 ATS score at an MNC.\n\n" +
+                        "Return ONLY valid raw JSON, no markdown:\n" +
                         "{\n" +
-                        "  \"matchPercentage\": 75,\n" +
-                        "  \"atsScore\": 68,\n" +
-                        "  \"jobTitle\": \"Software Engineer\",\n" +
-                        "  \"industry\": \"SOFTWARE_ENGINEERING\",\n" +
-                        "  \"missingKeywords\": \"Docker, Kubernetes, AWS\",\n" +
-                        "  \"matchedKeywords\": \"Java, Spring Boot, REST API\",\n" +
-                        "  \"suggestions\": \"Add cloud platform experience.\",\n" +
-                        "  \"improvementTips\": \"1. Quantify achievements. 2. Add certifications.\",\n" +
-                        "  \"experienceGap\": \"Job needs 5 years, resume shows 2 years.\",\n" +
-                        "  \"skillsGap\": \"Missing: Docker, AWS, Kubernetes\"\n" +
-                        "}\n" +
-                        "industry must be ONE of: SOFTWARE_ENGINEERING | DATA_SCIENCE | DEVOPS | FRONTEND | PRODUCT_MANAGEMENT\n\n" +
+                        "  \"matchPercentage\": <0-100 integer — how well candidate matches JD requirements>,\n" +
+                        "  \"atsScore\": <0-100 integer — pure ATS keyword + format score, be strict>,\n" +
+                        "  \"jobTitle\": \"<exact title from JD>\",\n" +
+                        "  \"industry\": \"<ONE of: SOFTWARE_ENGINEERING | DATA_SCIENCE | DEVOPS | FRONTEND | BACKEND | PRODUCT_MANAGEMENT>\",\n" +
+                        "  \"missingKeywords\": \"<comma-separated list of JD keywords completely absent from resume>\",\n" +
+                        "  \"matchedKeywords\": \"<comma-separated list of JD keywords found in resume>\",\n" +
+                        "  \"suggestions\": \"<2-3 specific, actionable changes — not generic advice>\",\n" +
+                        "  \"improvementTips\": \"<numbered list: 1. specific tip  2. specific tip  3. specific tip>\",\n" +
+                        "  \"experienceGap\": \"<exact gap between JD requirement and candidate's experience — be specific>\",\n" +
+                        "  \"skillsGap\": \"<exact technical skills in JD that candidate does not have>\"\n" +
+                        "}\n\n" +
+                        "ATS SCORING RULES (follow strictly):\n" +
+                        "- Keyword match < 40% → atsScore max 45\n" +
+                        "- Only 1 internship (< 6 months) → deduct 15 points\n" +
+                        "- Missing required skills from JD → deduct 5 points each (max -25)\n" +
+                        "- No quantified achievements → deduct 10 points\n" +
+                        "- Generic summary not tailored to JD → deduct 8 points\n" +
+                        "- Each exact JD keyword present → add 3 points\n\n" +
                         "RESUME:\n" + resume + "\n\n" +
                         "JOB DESCRIPTION:\n" + jobDescription;
 
-        return callGroq(prompt, 0.3, 1024);
+        return callGroq(prompt, 0.1, 1024);
     }
 
+    // ── COVER LETTER ──────────────────────────────────────────────────────────
     public String generateCoverLetter(String resumeText, String jobDescription,
                                       String companyName, String jobTitle) throws Exception {
         String resume = cap(resumeText, 4000);
 
         String prompt =
-                "Write a professional cover letter.\n" +
+                "Write a professional, ATS-optimized cover letter.\n" +
                         "Company: " + companyName + "\n" +
                         "Job Title: " + jobTitle + "\n" +
+                        "Rules:\n" +
+                        "- Use at least 6 exact keywords from the JD naturally in the letter\n" +
+                        "- 3 paragraphs: (1) hook with role + top 2 strengths, (2) specific project/achievement mapped to JD need, (3) call to action\n" +
+                        "- Do NOT use filler phrases like 'I am excited to apply' or 'I believe I am a good fit'\n" +
+                        "- Keep it under 280 words\n" +
+                        "- Return ONLY the letter text, no subject line, no placeholders\n\n" +
                         "Job Description:\n" + jobDescription + "\n\n" +
-                        "Candidate Resume:\n" + resume + "\n\n" +
-                        "Write 3-4 paragraphs. Return ONLY the letter text.";
+                        "Candidate Resume:\n" + resume;
 
-        return callGroq(prompt, 0.7, 1024);
+        return callGroq(prompt, 0.5, 1024);
     }
 
-    /**
-     * Tailored resume generation — now includes projects, certifications,
-     * achievements, and links sections.
-     */
-    public String generateTailoredResume(String resumeText, String jobDescription) throws Exception {
+    // ── TAILORED RESUME ───────────────────────────────────────────────────────
+    public String generateTailoredResume(String resumeText, String jobDescription,
+                                         String companyType) throws Exception {
         String fullResume = cap(resumeText, 10000);
 
+        // Build company-type specific instructions
+        String companyInstructions = buildCompanyInstructions(companyType);
+
         String prompt =
-                "You are a world-class ATS resume optimizer. Your ONLY goal is to tailor " +
-                        "the candidate's resume to achieve MAXIMUM ATS score for the given job description.\n\n" +
+                "You are a world-class ATS resume optimizer at a Big 4 recruiting firm. " +
+                        "Your ONLY goal: tailor this resume to achieve MAXIMUM ATS score (90+) for the given JD.\n\n" +
 
-                        "=== PERSONAL DETAILS EXTRACTION — MANDATORY ===\n\n" +
+                        "=== COMPANY TYPE OPTIMIZATION ===\n" +
+                        companyInstructions + "\n\n" +
 
-                        "NAME: Take the VERY FIRST non-empty line of resume as name.\n\n" +
+                        "=== PERSONAL DETAILS — MANDATORY EXTRACTION ===\n" +
+                        "NAME: Take the VERY FIRST non-empty line of resume as name.\n" +
+                        "EMAIL: Find any token containing '@' — that is the email.\n" +
+                        "PHONE: Find 10-digit number or +91 prefixed number.\n" +
+                        "LINKEDIN: Find text containing 'linkedin.com' — extract as-is.\n" +
+                        "GITHUB: Find text containing 'github.com' — extract as-is.\n\n" +
 
-                        "EMAIL: Find any token containing '@' — that is the email.\n\n" +
+                        "=== ATS OPTIMIZATION RULES (MANDATORY — FOLLOW ALL) ===\n" +
+                        "1. SKILLS LIST:\n" +
+                        "   - First 8 skills MUST be exact keywords copied from JD (word-for-word match)\n" +
+                        "   - Then add candidate's remaining relevant skills\n" +
+                        "   - Remove skills not mentioned in JD and not relevant to the role\n" +
+                        "   - Total skills: 12-18 items\n\n" +
+                        "2. PROFESSIONAL SUMMARY (3 sentences, MANDATORY):\n" +
+                        "   - Sentence 1: Candidate's background + exact JD job title + years of experience\n" +
+                        "   - Sentence 2: Top 3 technical skills from JD + one specific achievement with number\n" +
+                        "   - Sentence 3: What value they bring to this specific role\n" +
+                        "   - Must contain at least 7 exact phrases from JD\n" +
+                        "   - NEVER use: 'highly motivated', 'passionate', 'team player', 'quick learner'\n\n" +
+                        "3. EXPERIENCE BULLETS (rewrite every bullet):\n" +
+                        "   - Start every bullet with a strong action verb (Engineered, Architected, Reduced, Increased, Deployed, Optimized)\n" +
+                        "   - Every bullet must have: action verb + JD keyword + quantified result (%, time, scale)\n" +
+                        "   - If original bullet has a number, KEEP it — never remove metrics\n" +
+                        "   - If candidate used similar tech to JD tech, substitute JD's exact term\n" +
+                        "   - Minimum 3 bullets per experience entry\n\n" +
+                        "4. PROJECTS (rewrite descriptions):\n" +
+                        "   - Rewrite to highlight JD-relevant technologies and impact\n" +
+                        "   - Add business impact if missing (e.g., 'reducing latency by X%', 'supporting N users')\n" +
+                        "   - techStack must list JD keywords first\n\n" +
+                        "5. JOB TITLE: Use EXACT job title from JD — no creative variations\n\n" +
+                        "6. ACHIEVEMENTS:\n" +
+                        "   - Reframe achievements to connect to JD requirements\n" +
+                        "   - IEEE papers, publications → lead with impact on the domain in JD\n\n" +
 
-                        "PHONE: Find 10-digit number or +91 prefixed number.\n\n" +
-
-                        "LINKEDIN: Find text containing 'linkedin.com' — extract as-is including path.\n\n" +
-
-                        "GITHUB: Find text containing 'github.com' — extract as-is including path.\n\n" +
-
-                        "=== ATS OPTIMIZATION — MANDATORY RULES ===\n\n" +
-
-                        "1. SKILLS: List JD's exact keywords FIRST, then candidate's other skills.\n" +
-                        "2. SUMMARY: Must contain at least 5 exact phrases from the JD. Make it 3 sentences.\n" +
-                        "3. EXPERIENCE: Rewrite each bullet point to include JD keywords naturally.\n" +
-                        "   - Keep all original numbers/metrics (%, counts, scale).\n" +
-                        "   - Add JD technologies where candidate has used similar ones.\n" +
-                        "4. PROJECTS: Rewrite descriptions to highlight JD-relevant technologies.\n" +
-                        "5. JOB TITLE: Use EXACT job title from JD — one title only, no slashes.\n\n" +
-
-                        "=== EDUCATION EXTRACTION ===\n\n" +
-
-                        "- Find lines with: university, college, institute, iit, nit, b.tech, mca, bca, mba, b.sc, m.tech\n" +
-                        "- Extract degree, full college name, and graduation year.\n" +
-                        "- NEVER write 'Not specified' — use empty string if not found.\n\n" +
+                        "=== EDUCATION EXTRACTION ===\n" +
+                        "Extract: degree name, full college/university name, graduation year.\n" +
+                        "NEVER write 'Not specified' — use empty string if not found.\n\n" +
 
                         "=== CERTIFICATIONS ===\n" +
-                        "- Extract all certifications from resume.\n" +
-                        "- Add JD-relevant certifications the candidate likely has based on their skills.\n\n" +
+                        "Extract all certifications. If candidate has skills matching well-known certs in the JD domain, suggest those certs as 'Recommended' in issuer field.\n\n" +
 
-                        "=== OUTPUT — STRICT JSON ONLY ===\n" +
-                        "No markdown, no explanation, no ```json. Raw JSON only:\n" +
+                        "=== OUTPUT — STRICT RAW JSON ONLY ===\n" +
+                        "No markdown, no explanation, no ```json fences. Raw JSON only:\n" +
                         "{\n" +
                         "  \"name\": \"Full Name\",\n" +
                         "  \"email\": \"email@example.com\",\n" +
@@ -111,34 +138,36 @@ public class AiService {
                         "  \"linkedin\": \"linkedin.com/in/username\",\n" +
                         "  \"github\": \"github.com/username\",\n" +
                         "  \"jobTitle\": \"Exact Job Title From JD\",\n" +
-                        "  \"summary\": \"3 sentences with JD keywords packed in\",\n" +
-                        "  \"skills\": [\"JD Skill 1\", \"JD Skill 2\", \"Candidate Skill 3\"],\n" +
+                        "  \"summary\": \"3 precise sentences packed with JD keywords and one metric\",\n" +
+                        "  \"skills\": [\"JD Exact Skill 1\", \"JD Exact Skill 2\", \"JD Exact Skill 3\", \"JD Exact Skill 4\", \"JD Exact Skill 5\", \"JD Exact Skill 6\", \"JD Exact Skill 7\", \"JD Exact Skill 8\", \"Other Skill 9\"],\n" +
                         "  \"experience\": [\n" +
                         "    {\n" +
                         "      \"title\": \"Job Title\",\n" +
                         "      \"company\": \"Company Name\",\n" +
                         "      \"duration\": \"Mon YYYY - Mon YYYY\",\n" +
                         "      \"points\": [\n" +
-                        "        \"Rewritten bullet with JD keywords and original metrics\"\n" +
+                        "        \"ActionVerb + JD keyword + quantified result\",\n" +
+                        "        \"ActionVerb + JD keyword + quantified result\",\n" +
+                        "        \"ActionVerb + JD keyword + quantified result\"\n" +
                         "      ]\n" +
                         "    }\n" +
                         "  ],\n" +
                         "  \"projects\": [\n" +
                         "    {\n" +
                         "      \"name\": \"Project Name\",\n" +
-                        "      \"description\": \"JD-optimized description with impact metrics\",\n" +
-                        "      \"techStack\": [\"Tech1\", \"Tech2\"]\n" +
+                        "      \"description\": \"JD-optimized description with impact metrics and JD keywords\",\n" +
+                        "      \"techStack\": [\"JD Tech First\", \"Other Tech\"]\n" +
                         "    }\n" +
                         "  ],\n" +
                         "  \"certifications\": [\n" +
-                        "    {\"name\": \"Cert Name\", \"issuer\": \"Issuer\"}\n" +
+                        "    {\"name\": \"Cert Name\", \"issuer\": \"Issuer or Recommended\"}\n" +
                         "  ],\n" +
                         "  \"achievements\": [\n" +
-                        "    \"Achievement 1\"\n" +
+                        "    \"Achievement reframed to connect with JD domain\"\n" +
                         "  ],\n" +
                         "  \"education\": [\n" +
                         "    {\n" +
-                        "      \"degree\": \"Degree\",\n" +
+                        "      \"degree\": \"Degree Name\",\n" +
                         "      \"college\": \"Full College Name\",\n" +
                         "      \"year\": \"YYYY\"\n" +
                         "    }\n" +
@@ -150,6 +179,51 @@ public class AiService {
         return callGroq(prompt, 0.1, 4096);
     }
 
+    // ── Overload for backward compatibility (no companyType) ──────────────────
+    public String generateTailoredResume(String resumeText, String jobDescription) throws Exception {
+        return generateTailoredResume(resumeText, jobDescription, "both");
+    }
+
+    // ── Company-specific optimization instructions ────────────────────────────
+    private String buildCompanyInstructions(String companyType) {
+        if (companyType == null) companyType = "both";
+        return switch (companyType.toLowerCase()) {
+            case "product" -> """
+                TARGET: Product-based companies (FAANG, unicorn startups, mid-size product firms)
+                RULES:
+                - Emphasize: system design thinking, scalability, ownership, impact at scale
+                - Use metrics that show scale: "served 1M+ requests/day", "reduced p99 latency by 40%"
+                - Highlight: open-source contributions, side projects, publications, competitive programming
+                - Summary must mention: problem-solving approach, system design, data structures
+                - Skills order: DSA/Algorithms first, then core tech, then frameworks
+                - Avoid: vague descriptions, team-size mentions without impact, process-heavy language
+                - Projects: must show technical depth — mention architecture decisions, tradeoffs
+                """;
+            case "service" -> """
+                TARGET: Service-based companies (TCS, Infosys, Wipro, Cognizant, Capgemini, Accenture)
+                RULES:
+                - Emphasize: client delivery, team collaboration, process adherence, certifications
+                - Use metrics that show delivery: "delivered project 2 weeks ahead of schedule", "managed 5-member team"
+                - Highlight: communication skills, adaptability, multiple technology exposure
+                - Summary must mention: client-facing experience, Agile/Scrum, cross-functional collaboration
+                - Skills order: JD-specific tech first, then tools, then methodologies (Agile, SDLC)
+                - Certifications section is CRITICAL — list all, suggest relevant ones
+                - Projects: mention client impact, team size, delivery timeline
+                """;
+            default -> """
+                TARGET: Both product-based and service-based companies
+                RULES:
+                - Balance technical depth (for product) with delivery focus (for service)
+                - Include metrics that show both scale AND delivery quality
+                - Summary: mention both problem-solving AND collaboration
+                - Skills: JD keywords first, then core tech, then methodologies
+                - Projects: show technical depth + business/delivery impact
+                - Certifications: list all existing ones prominently
+                """;
+        };
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
     private String cap(String text, int limit) {
         return text != null && text.length() > limit ? text.substring(0, limit) : text;
     }
@@ -159,8 +233,9 @@ public class AiService {
         system.addProperty("role", "system");
         system.addProperty("content",
                 "You are a precise JSON-only assistant. " +
-                        "Output ONLY a raw JSON object — no markdown, no ```json, no text before or after. " +
-                        "Follow all field-level instructions exactly. Never output 'Not specified'.");
+                        "Output ONLY a raw JSON object — no markdown, no ```json fences, no text before or after. " +
+                        "Every field must be filled. Never output 'Not specified' or leave required fields empty. " +
+                        "Follow all field-level instructions exactly.");
 
         JsonObject user = new JsonObject();
         user.addProperty("role", "user");
